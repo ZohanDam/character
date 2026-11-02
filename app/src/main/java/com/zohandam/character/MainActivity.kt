@@ -24,7 +24,6 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsets
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import java.time.LocalDate
@@ -198,7 +197,7 @@ class MainActivity : Activity() {
         focus.addView(label(trait.name, 38f).apply {
             typeface = Typeface.create("serif", Typeface.NORMAL)
             setLineSpacing(0f, 1.05f)
-            if (Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
+            isAccessibilityHeading = true
         })
         space(focus, 20)
         focus.addView(label(trait.definition, 19f).apply { setLineSpacing(dp(5).toFloat(), 1.12f) })
