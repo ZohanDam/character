@@ -4,7 +4,7 @@ A quiet Android app for one character trait each week. Read its meaning, set dai
 
 ## Install
 
-Download **Character-1.0.0.apk** from [the latest release](https://github.com/ZohanDam/character/releases/latest) on an Android 10 or newer phone. Open the APK and allow installation from the browser or Files app if Android asks.
+Download **Character-1.0.1.apk** from [the latest release](https://github.com/ZohanDam/character/releases/latest) on an Android 10 or newer phone. Open the APK and allow installation from the browser or Files app if Android asks.
 
 ## Use
 

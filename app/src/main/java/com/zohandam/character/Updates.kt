@@ -4,7 +4,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URI
 
-data class Release(val version: String, val notes: String, val page: String, val apk: String)
+data class Release(val version: String, val page: String, val apk: String)
 
 object Versions {
     fun parts(value: String): List<Int>? {
@@ -61,7 +61,7 @@ object Updates {
                     "The release download address is invalid."
                 }
             }
-            return Release(tag.removePrefix("v"), body.optString("body"),
+            return Release(tag.removePrefix("v"),
                 "$repositoryUrl/releases/tag/$tag", apk)
         } finally { connection.disconnect() }
     }

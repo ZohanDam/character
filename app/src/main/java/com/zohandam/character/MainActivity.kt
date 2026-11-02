@@ -35,6 +35,7 @@ import java.util.concurrent.Executors
 class MainActivity : Activity() {
     private lateinit var store: Store
     private lateinit var page: LinearLayout
+    private var scrollView: ScrollView? = null
     private var screen = "home"
     private val worker = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
@@ -94,7 +95,7 @@ class MainActivity : Activity() {
         handler.postDelayed(midnightRefresh, java.time.Duration.between(now, next).toMillis() + 100)
     }
 
-    private fun navigate(destination: String) { screen = destination; render() }
+    private fun navigate(destination: String) { screen = destination; scrollView = null; render() }
     private fun dp(value: Int) = (value * resources.displayMetrics.density + 0.5f).toInt()
     private fun space(parent: LinearLayout, size: Int) { parent.addView(View(this), LinearLayout.LayoutParams(1, dp(size))) }
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -131,6 +132,7 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
+        val previousScroll = scrollView?.scrollY ?: 0
         val root = column().apply { setBackgroundColor(getColor(R.color.background)) }
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         @Suppress("DEPRECATION")
@@ -163,12 +165,14 @@ class MainActivity : Activity() {
         }
         root.addView(header)
         val scroll = ScrollView(this).apply { isFillViewport = true; clipToPadding = false }
+        scrollView = scroll
         page = column().apply { setPadding(dp(24), dp(12), dp(24), dp(28)) }
         scroll.addView(page, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         root.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         when (screen) { "traits" -> traits(); "settings" -> settings(); "info" -> info(); else -> home() }
         setContentView(root)
         root.requestApplyInsets()
+        scroll.post { scroll.scrollTo(0, previousScroll) }
     }
 
     private fun home() {
@@ -392,12 +396,9 @@ class MainActivity : Activity() {
         })
         release?.takeIf { Versions.newer(it.version, BuildConfig.VERSION_NAME) }?.let { latest ->
             space(updates, 10)
-            if (latest.notes.isNotBlank()) {
-                updates.addView(label(latest.notes.take(2000), 13f, muted)); space(updates, 12)
-            }
             if (latest.apk.isNotEmpty()) updates.addView(button("Download version ${latest.version}") { download(latest) })
             space(updates, 8)
-            updates.addView(button("View release on GitHub") { browse(latest.page) })
+            updates.addView(button("Release notes on GitHub") { browse(latest.page) })
         }
         space(updates, 10)
         updates.addView(label("Updates download from GitHub. Installing an update keeps your traits, schedule, and cycle.", 12f, muted))

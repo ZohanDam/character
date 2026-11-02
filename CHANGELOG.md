@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+
+- Keep update downloads prominent and open release notes on GitHub.
+- Preserve scroll position when updating a screen's contents.
+
 ## 1.0.0
 
 - Twelve character traits, including Endurance, in an automatic Sunday–Saturday rotation.
