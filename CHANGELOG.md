@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0
+
+- Preserve pending reminders when the app opens, including delayed reminders due today.
+- Expire drawer notifications at the next Sunday midnight and shorten titles to the trait name.
+- Show the next reminder or delivery status; add a test notification and Android channel-settings shortcut.
+- Recognize existing update downloads and use unique filenames for fresh attempts.
+- Export/import all twelve traits, reminder settings, starting Sunday, and theme using Android's file picker.
+- Validate imports before confirmation and support up to 24 distinct daily reminder times.
+
 ## 1.0.1
 
 - Keep update downloads prominent and open release notes on GitHub.

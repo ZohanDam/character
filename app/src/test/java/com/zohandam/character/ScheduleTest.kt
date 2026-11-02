@@ -70,4 +70,53 @@ class ScheduleTest {
         assertFalse(Versions.newer("1.1.0-beta", "1.0.0"))
         assertFalse(Versions.newer("invalid", "1.0.0"))
     }
+
+    @Test fun `opening after reminder time preserves a pending late alarm`() {
+        val now = ZonedDateTime.of(2026, 11, 3, 8, 5, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        val pending = now.withHour(8).withMinute(0).toInstant().toEpochMilli()
+        assertEquals(pending, Schedule.reminderTrigger(480, pending, true, now))
+    }
+
+    @Test fun `opening repeatedly does not move an alarm awaiting delivery`() {
+        val start = ZonedDateTime.of(2026, 11, 3, 8, 0, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        val pending = start.toInstant().toEpochMilli()
+        for (delay in listOf(1L, 5L, 45L, 90L))
+            assertEquals(pending, Schedule.reminderTrigger(480, pending, true, start.plusMinutes(delay)))
+    }
+
+    @Test fun `a missing pending intent is rebuilt rather than retained`() {
+        val now = ZonedDateTime.of(2026, 11, 3, 8, 5, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        val old = now.minusMinutes(5).toInstant().toEpochMilli()
+        val expected = Schedule.nextReminder(480, now).toInstant().toEpochMilli()
+        assertEquals(expected, Schedule.reminderTrigger(480, old, false, now))
+    }
+
+    @Test fun `yesterday's stale alarm is not retained forever`() {
+        val now = ZonedDateTime.of(2026, 11, 3, 8, 5, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        val old = now.minusDays(1).withMinute(0).toInstant().toEpochMilli()
+        assertEquals(Schedule.nextReminder(480, now).toInstant().toEpochMilli(), Schedule.reminderTrigger(480, old, true, now))
+    }
+
+    @Test fun `clock changes explicitly rebuild the chosen local time`() {
+        val now = ZonedDateTime.of(2026, 11, 3, 8, 5, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        assertEquals(Schedule.nextReminder(480, now).toInstant().toEpochMilli(),
+            Schedule.reminderTrigger(480, now.minusMinutes(5).toInstant().toEpochMilli(), true, now, rebuild = true))
+    }
+
+    @Test fun `Saturday notification expires at the coming Sunday midnight`() {
+        val now = ZonedDateTime.of(2026, 11, 7, 23, 59, 59, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        assertEquals(1L, java.time.Duration.between(now, Schedule.nextSunday(now)).seconds)
+    }
+
+    @Test fun `Sunday notification lasts until the next Sunday`() {
+        val now = ZonedDateTime.of(2026, 11, 8, 0, 0, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh"))
+        assertEquals(now.plusWeeks(1), Schedule.nextSunday(now))
+    }
+
+    @Test fun `weekly expiration follows local midnight through daylight saving`() {
+        val now = ZonedDateTime.of(2027, 3, 13, 23, 0, 0, 0, ZoneId.of("America/New_York"))
+        val expiry = Schedule.nextSunday(now)
+        assertEquals(LocalDate.of(2027, 3, 14), expiry.toLocalDate())
+        assertEquals(0, expiry.hour)
+    }
 }

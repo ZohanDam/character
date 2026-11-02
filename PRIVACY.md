@@ -8,4 +8,6 @@ An explicit **Download** action uses Android's Download Manager to retrieve an A
 
 Automatic app backups are disabled. Uninstalling the app deletes its private data. A downloaded APK remains in Downloads until deleted. Installing a correctly signed update over the existing app preserves its private data.
 
+An explicit **Export backup** action saves readable JSON containing the twelve traits, reminder preference and times, starting Sunday, and theme to a file selected through Android's document picker. That file remains after uninstalling. A selected cloud document provider may upload the file under that provider's own settings and privacy policy. Character does not send backups to its own server. An explicit **Import backup** action reads only the selected file and asks for confirmation before applying its validated contents. Notification permissions and download-history identifiers are not transferred.
+
 The public source repository and releases are hosted by GitHub and are subject to GitHub's own privacy policy.

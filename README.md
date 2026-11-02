@@ -4,14 +4,15 @@ A quiet Android app for one character trait each week. Read its meaning, set dai
 
 ## Install
 
-Download **Character-1.0.1.apk** from [the latest release](https://github.com/ZohanDam/character/releases/latest) on an Android 10 or newer phone. Open the APK and allow installation from the browser or Files app if Android asks.
+Download **Character-1.1.0.apk** from [the latest release](https://github.com/ZohanDam/character/releases/latest) on an Android 10 or newer phone. Open the APK and allow installation from the browser or Files app if Android asks.
 
 ## Use
 
 - **This week:** the current trait, full definition, and Sunday–Saturday dates.
 - **Traits:** tap any of the twelve traits to edit its name and definition.
-- **Reminders:** enable reminders, then add, change, or remove individual daily times. The default schedule is once a day at **8:00 AM**. Reminders stay off until enabled.
+- **Reminders:** enable reminders, then add, change, or remove up to 24 individual daily times. The default schedule is once a day at **8:00 AM**. Reminders stay off until enabled. The next reminder and permission status appear in Settings and on the home screen. **Send test notification** previews a reminder immediately, including when daily reminders are off. **Notification sound & appearance** opens Android's settings for this channel.
 - **Appearance:** follow the phone theme, or choose light or dark.
+- **Backup:** export traits, daily reminder times, reminder preference, starting Sunday, and theme to a small JSON file. Import validates the complete file and asks for confirmation before replacing settings. Android's file picker controls where files are saved and opened; no storage permission is required. Imported reminders still need notification permission on the receiving phone.
 - **About Character:** app description, installed version, GitHub source, and an on-demand update check. New releases download directly from GitHub to Downloads; open the downloaded APK to install.
 
 The first week starts with Self-Control. The initial week is the Sunday–Saturday week containing first launch, so a midweek installation has a shorter first week. After Endurance, the cycle returns to Self-Control. Editing definitions does not move the cycle. Updating the installed app preserves its data; uninstalling removes local settings and edits.
@@ -31,11 +32,15 @@ Screenshots are from the installed Android app. The [About screen](docs/screensh
 
 Android 13+ requires notification permission. Settings shows a notification-permission shortcut when needed. Android 12+ may also require **Alarms & reminders** access for precise timing; without it, standard reminders still work but Android may delay delivery. Exact delivery can still be affected by device restrictions. Multiple pending times remain independent when a reminder is delivered late.
 
-The app reschedules after restart, local time/timezone changes, and app updates. An Android force-stop blocks reminders until the app is opened again. Times always follow the phone's local clock. No persistent background service is used.
+Opening the app preserves existing pending reminders, including one Android has delayed past its chosen time today. Restart, local time/timezone changes, and app updates rebuild the schedule. An Android force-stop blocks reminders until the app is opened again. Times always follow the phone's local clock. No persistent background service is used.
+
+Drawer notifications show the trait name and an expandable definition. New reminders replace the previous entry, and the entry expires at the next Sunday midnight. The app's manual theme affects its own screens; Android controls drawer styling. Sound and vibration remain under the phone's channel settings.
+
+Repeated update downloads recognize an active or completed download. A fresh attempt uses a unique filename so an existing APK cannot block it. **Open Downloads** opens Android's download list, where the APK can be installed.
 
 ## Privacy
 
-Trait edits, the starting week, reminder times, and theme are stored on the device. No account, analytics, ads, or backend. Update checks contact GitHub only when requested. APK downloads are managed by Android's Download Manager. See [PRIVACY.md](PRIVACY.md).
+Trait edits, the starting week, reminder times, and theme are stored on the device. No account, analytics, ads, or backend. Update checks contact GitHub only when requested. APK downloads are managed by Android's Download Manager. Exported backup files are readable JSON; store them in a location appropriate for their contents. See [PRIVACY.md](PRIVACY.md).
 
 ## Build
 

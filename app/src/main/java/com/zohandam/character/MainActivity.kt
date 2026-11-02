@@ -31,6 +31,8 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.UUID
+import java.io.ByteArrayOutputStream
 
 class MainActivity : Activity() {
     private lateinit var store: Store
@@ -39,7 +41,17 @@ class MainActivity : Activity() {
     private var screen = "home"
     private val worker = Executors.newSingleThreadExecutor()
     private val handler = Handler(Looper.getMainLooper())
-    private val midnightRefresh = Runnable { if (!isFinishing) { render(); scheduleRefresh() } }
+    private val statusViews = mutableListOf<TextView>()
+    private var displayedDate = LocalDate.now()
+    private val minuteRefresh = Runnable {
+        if (!isFinishing) {
+            if (displayedDate != LocalDate.now()) render()
+            else statusViews.forEach { it.text = reminderStatus() }
+            scheduleRefresh()
+        }
+    }
+    private var pendingTest = false
+    private var backupBusy = false
     private var checking = false
     private var release: Release? = null
     private var updateStatus = "Check GitHub for the latest release."
@@ -63,6 +75,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         store = Store(this)
         screen = savedInstanceState?.getString("screen") ?: "home"
+        pendingTest = savedInstanceState?.getBoolean("pendingTest") ?: false
         Reminders.channel(this)
         if (Build.VERSION.SDK_INT >= 33) {
             onBackInvokedDispatcher.registerOnBackInvokedCallback(0) {
@@ -75,12 +88,19 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (::store.isInitialized) { Reminders.schedule(this); render(); scheduleRefresh() }
+        if (::store.isInitialized) {
+            Reminders.schedule(this)
+            if (pendingTest && Reminders.permitted(this)) { pendingTest = false; Reminders.show(this, test = true) }
+            render(); scheduleRefresh()
+        }
     }
 
-    override fun onPause() { handler.removeCallbacks(midnightRefresh); super.onPause() }
+    override fun onPause() { handler.removeCallbacks(minuteRefresh); super.onPause() }
     override fun onDestroy() { handler.removeCallbacksAndMessages(null); worker.shutdownNow(); super.onDestroy() }
-    override fun onSaveInstanceState(outState: Bundle) { outState.putString("screen", screen); super.onSaveInstanceState(outState) }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("screen", screen); outState.putBoolean("pendingTest", pendingTest)
+        super.onSaveInstanceState(outState)
+    }
 
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
@@ -89,10 +109,8 @@ class MainActivity : Activity() {
     }
 
     private fun scheduleRefresh() {
-        handler.removeCallbacks(midnightRefresh)
-        val now = java.time.ZonedDateTime.now()
-        val next = now.toLocalDate().plusDays(1).atStartOfDay(now.zone)
-        handler.postDelayed(midnightRefresh, java.time.Duration.between(now, next).toMillis() + 100)
+        handler.removeCallbacks(minuteRefresh)
+        handler.postDelayed(minuteRefresh, 60_000 - System.currentTimeMillis() % 60_000 + 100)
     }
 
     private fun navigate(destination: String) { screen = destination; scrollView = null; render() }
@@ -133,6 +151,8 @@ class MainActivity : Activity() {
 
     private fun render() {
         val previousScroll = scrollView?.scrollY ?: 0
+        statusViews.clear()
+        displayedDate = LocalDate.now()
         val root = column().apply { setBackgroundColor(getColor(R.color.background)) }
         val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         @Suppress("DEPRECATION")
@@ -214,12 +234,8 @@ class MainActivity : Activity() {
         space(page, 18)
         page.addView(button("View all 12 traits") { navigate("traits") })
         space(page, 20)
-        val reminderText = when {
-            !store.enabled -> "Set a daily reminder"
-            !Reminders.permitted(this) -> "Reminders need notification permission"
-            else -> "${store.times.size} daily reminder${if (store.times.size == 1) "" else "s"} · ${store.times.joinToString(" · ") { time(it) }}"
-        }
-        page.addView(label(reminderText, 13f, muted).apply {
+        page.addView(label(reminderStatus(), 13f, muted).apply {
+            statusViews.add(this)
             gravity = Gravity.CENTER; minHeight = dp(48)
             clickable(this, getColor(R.color.background)) { navigate("settings") }
         })
@@ -291,15 +307,15 @@ class MainActivity : Activity() {
             minHeight = dp(48); isChecked = store.enabled
             setOnCheckedChangeListener { _, checked ->
                 store.enabled = checked
-                if (checked && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 10)
-                }
+                if (checked && !Reminders.permitted(this@MainActivity)) requestNotificationAccess()
                 Reminders.schedule(this@MainActivity); render()
             }
         }
         reminders.addView(toggle)
         space(reminders, 4)
         reminders.addView(label("${store.times.size} reminder${if (store.times.size == 1) "" else "s"} per day. Each time repeats daily.", 14f, muted))
+        space(reminders, 10)
+        reminders.addView(label(reminderStatus(), 14f, accent).apply { statusViews.add(this) })
         space(reminders, 18)
         store.times.forEach { minutes ->
             val row = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -314,18 +330,27 @@ class MainActivity : Activity() {
             }
             reminders.addView(row); space(reminders, 8)
         }
-        reminders.addView(button("+ Add reminder time") { pickTime(null) })
+        reminders.addView(button(if (store.times.size < Store.MAX_REMINDERS) "+ Add reminder time" else "${Store.MAX_REMINDERS} reminder times maximum") { pickTime(null) }.apply {
+            isEnabled = store.times.size < Store.MAX_REMINDERS
+            alpha = if (isEnabled) 1f else 0.5f
+        })
         space(reminders, 12)
         reminders.addView(label("Default: once a day at 8:00 AM. Times follow your phone’s local time.", 12f, muted))
+        space(reminders, 16)
+        reminders.addView(button("Send test notification") {
+            if (Reminders.permitted(this)) { Reminders.show(this, test = true); toast("Test notification sent") }
+            else { pendingTest = true; requestNotificationAccess() }
+        })
+        space(reminders, 8)
+        reminders.addView(button("Notification sound & appearance") {
+            open(Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, packageName).putExtra(Settings.EXTRA_CHANNEL_ID, Reminders.CHANNEL))
+        })
         page.addView(reminders)
         if (store.enabled && !Reminders.permitted(this)) {
             space(page, 12)
             page.addView(button("Allow notifications") {
-                if (Build.VERSION.SDK_INT >= 33 && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) &&
-                    !getPreferences(MODE_PRIVATE).getBoolean("notificationAsked", false)) {
-                    getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked", true).apply()
-                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 10)
-                } else open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+                requestNotificationAccess()
             })
         }
         if (Build.VERSION.SDK_INT >= 31 && store.enabled && !getSystemService(AlarmManager::class.java).canScheduleExactAlarms()) {
@@ -351,7 +376,42 @@ class MainActivity : Activity() {
         })
         page.addView(appearance)
         space(page, 24)
+        page.addView(smallLabel("BACKUP"))
+        space(page, 12)
+        val backup = card()
+        backup.addView(label("Save or restore your traits, reminder times, weekly cycle and theme.", 14f, muted))
+        space(backup, 14)
+        backup.addView(button("Export backup") {
+            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/json").putExtra(Intent.EXTRA_TITLE, "Character-backup-${LocalDate.now()}.json"), 20)
+        }.apply { isEnabled = !backupBusy })
+        space(backup, 8)
+        backup.addView(button("Import backup") {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/json", "text/plain", "application/octet-stream")), 21)
+        }.apply { isEnabled = !backupBusy })
+        page.addView(backup)
+        space(page, 24)
         page.addView(button("About Character  ·  ${BuildConfig.VERSION_NAME}") { navigate("info") })
+    }
+
+    private fun reminderStatus(): String {
+        if (!store.enabled) return "Reminders are off"
+        if (!Reminders.permitted(this)) return "Notifications are blocked"
+        val next = Reminders.next(this) ?: return "Scheduling reminders…"
+        val clock = time(next.hour * 60 + next.minute)
+        if (next.isBefore(java.time.ZonedDateTime.now())) return "$clock reminder pending"
+        return "Next reminder: ${next.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.getDefault()))} at $clock"
+    }
+
+    private fun requestNotificationAccess() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            (!getPreferences(MODE_PRIVATE).getBoolean("notificationAsked", false) || shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS))) {
+            getPreferences(MODE_PRIVATE).edit().putBoolean("notificationAsked", true).apply()
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 10)
+        } else {
+            open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
+        }
     }
 
     private fun pickTime(previous: Int?) {
@@ -370,6 +430,61 @@ class MainActivity : Activity() {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Reminders.schedule(this); render()
+        if (pendingTest && Reminders.permitted(this)) { pendingTest = false; Reminders.show(this, test = true); toast("Test notification sent") }
+    }
+
+    @Deprecated("Platform activity result callback")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || requestCode !in 20..21) return
+        val uri = data?.data ?: return
+        backupBusy = true; render()
+        worker.execute {
+            val result = runCatching {
+                if (requestCode == 20) {
+                    val bytes = Backup.encode(store.backup()).toByteArray(Charsets.UTF_8)
+                    checkNotNull(contentResolver.openOutputStream(uri, "wt")) { "The destination could not be opened." }
+                        .use { it.write(bytes) }
+                    null
+                } else {
+                    val input = checkNotNull(contentResolver.openInputStream(uri)) { "The file could not be opened." }
+                    val text = input.use {
+                        val output = ByteArrayOutputStream()
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = it.read(buffer)
+                            if (count < 0) break
+                            require(output.size() + count <= Backup.MAX_BYTES) { "The backup is too large." }
+                            output.write(buffer, 0, count)
+                        }
+                        output.toString("UTF-8")
+                    }
+                    Backup.decode(text)
+                }
+            }
+            handler.post {
+                if (isFinishing || isDestroyed) return@post
+                backupBusy = false; render()
+                result.onSuccess { imported ->
+                    if (imported == null) toast("Backup exported")
+                    else AlertDialog.Builder(this).setTitle("Import backup?")
+                        .setMessage("Replace the current twelve traits and settings with this backup? It contains ${imported.times.size} daily reminder times and a cycle starting ${imported.anchor}.")
+                        .setNegativeButton("Cancel", null).setPositiveButton("Import") { _, _ ->
+                            runCatching {
+                                store.restore(imported)
+                                Reminders.clearNotification(this)
+                                Reminders.schedule(this, rebuild = true)
+                            }.onSuccess { toast("Backup imported"); recreate() }
+                                .onFailure { toast("Could not save the imported settings") }
+                        }.show()
+                }.onFailure {
+                    AlertDialog.Builder(this).setTitle(if (requestCode == 20) "Backup not exported" else "Backup not imported")
+                        .setMessage(if (requestCode == 20) "The file could not be saved. Choose another destination and try again."
+                            else "${it.message?.take(160) ?: "Choose a valid Character backup."}\n\nExisting settings were not changed.")
+                        .setPositiveButton("OK", null).show()
+                }
+            }
+        }
     }
 
     private fun info() {
@@ -433,6 +548,33 @@ class MainActivity : Activity() {
     }
 
     private fun download(latest: Release) {
+        val downloads = getSystemService(DownloadManager::class.java)
+        val prefs = getSharedPreferences("downloads", MODE_PRIVATE)
+        if (prefs.getString("version", null) == latest.version) {
+            val id = prefs.getLong("id", -1)
+            val status = runCatching {
+                downloads.query(DownloadManager.Query().setFilterById(id)).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) else null
+                }
+            }.getOrNull()
+            if (status == DownloadManager.STATUS_SUCCESSFUL && downloads.getUriForDownloadedFile(id) != null) {
+                AlertDialog.Builder(this).setTitle("Already downloaded")
+                    .setMessage("Version ${latest.version} is in Downloads. Open it there to install.")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Open Downloads") { _, _ -> open(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }
+                    .setNeutralButton("Download again") { _, _ -> confirmDownload(latest) }.show()
+                return
+            }
+            if (status in listOf(DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PAUSED)) {
+                AlertDialog.Builder(this).setTitle("Download in progress")
+                    .setMessage("Android is managing this download. Its progress is available in Downloads.")
+                    .setNegativeButton("Cancel", null).setPositiveButton("Open Downloads") { _, _ -> open(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)) }.show()
+                return
+            }
+        }
+        confirmDownload(latest)
+    }
+
+    private fun confirmDownload(latest: Release) {
         AlertDialog.Builder(this).setTitle("Download version ${latest.version}?")
             .setMessage("The APK will download from GitHub to Downloads. Open the downloaded file to install it. Android may ask you to allow installation from that source.")
             .setNegativeButton("Cancel", null).setPositiveButton("Download") { _, _ ->
@@ -442,8 +584,9 @@ class MainActivity : Activity() {
                         .setDescription("App update from GitHub")
                         .setMimeType("application/vnd.android.package-archive")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Character-${latest.version}.apk")
-                    getSystemService(DownloadManager::class.java).enqueue(request)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "Character-${latest.version}-${UUID.randomUUID()}.apk")
+                    val id = getSystemService(DownloadManager::class.java).enqueue(request)
+                    getSharedPreferences("downloads", MODE_PRIVATE).edit().putLong("id", id).putString("version", latest.version).apply()
                     toast("Download started. Open it from Downloads when complete.")
                 }.onFailure { browse(latest.apk) }
             }.show()

@@ -2,7 +2,6 @@ package com.zohandam.character
 
 import android.content.Context
 import org.json.JSONArray
-import org.json.JSONObject
 import java.time.LocalDate
 
 data class Trait(val name: String, val definition: String)
@@ -31,7 +30,7 @@ class Store(context: Context) {
         }
         set(value) {
             val clean = value.filter { it in 0..1439 }.distinct().sorted()
-            require(clean.isNotEmpty())
+            require(clean.isNotEmpty() && (clean.size <= MAX_REMINDERS || clean.size < times.size))
             prefs.edit().putString("times", clean.joinToString(",")).apply()
         }
 
@@ -51,12 +50,20 @@ class Store(context: Context) {
         require(trait.name.isNotBlank() && trait.definition.isNotBlank())
         val all = traits().toMutableList()
         all[index] = trait
-        val array = JSONArray()
-        all.forEach { array.put(JSONObject().put("name", it.name).put("definition", it.definition)) }
-        prefs.edit().putString("traits", array.toString()).apply()
+        prefs.edit().putString("traits", Backup.traitArray(all).toString()).apply()
+    }
+
+    fun backup(): BackupData = BackupData(anchor, enabled, theme, times, traits()).checked()
+
+    fun restore(data: BackupData) {
+        val valid = data.checked()
+        check(prefs.edit().putString("anchor", valid.anchor.toString()).putBoolean("enabled", valid.enabled)
+            .putInt("theme", valid.theme).putString("times", valid.times.joinToString(","))
+            .putString("traits", Backup.traitArray(valid.traits).toString()).commit()) { "Could not save the imported settings." }
     }
 
     companion object {
+        const val MAX_REMINDERS = 24
         val defaults = listOf(
             Trait("Self-Control", "The ability to govern your physical desires, emotions, and immediate impulses rather than being controlled by them."),
             Trait("Order", "Intentional organization of your physical environment, time, and daily priorities so everything has its proper place and purpose."),
