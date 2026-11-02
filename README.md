@@ -18,6 +18,15 @@ The first week starts with Self-Control. The initial week is the Sunday–Saturd
 
 The twelve traits are Self-Control, Order, Prudence, Diligence, Stewardship, Integrity, Courage, Humility, Kindness, Forgiveness (or Grace), Gratitude, and Endurance.
 
+## Screenshots
+
+| Light | Dark |
+| --- | --- |
+| <img src="docs/screenshots/home-light.png" width="260" alt="This week's trait in light mode"> | <img src="docs/screenshots/home-dark.png" width="260" alt="This week's trait in dark mode"> |
+| <img src="docs/screenshots/settings-light.png" width="260" alt="Multiple daily reminder times"> | <img src="docs/screenshots/settings-dark.png" width="260" alt="Reminder settings in dark mode"> |
+
+Screenshots are from the installed Android app. The [About screen](docs/screenshots/info-light.png) shows the version, description, and update check.
+
 ## Reminder delivery
 
 Android 13+ requires notification permission. Settings shows a notification-permission shortcut when needed. Android 12+ may also require **Alarms & reminders** access for precise timing; without it, standard reminders still work but Android may delay delivery. Exact delivery can still be affected by device restrictions. Multiple pending times remain independent when a reminder is delivered late.
@@ -52,3 +61,5 @@ For a signed release, set `CHARACTER_KEYSTORE`, `CHARACTER_STORE_PASSWORD`, and 
 4. Upload the signed APK named exactly `Character-MAJOR.MINOR.PATCH.apk`, plus its SHA-256 checksum.
 
 The app checks GitHub's latest stable release, compares the three numeric version components, and accepts APK links only from this repository's GitHub release-download path. Prereleases are excluded. Android enforces package/signature compatibility when installing updates. Signing credentials stay outside Git and GitHub; CI builds and tests without them.
+
+See [validation results](docs/VALIDATION.md) for completed checks and their limits.
