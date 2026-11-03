@@ -499,7 +499,7 @@ class MainActivity : Activity() {
         space(page, 22)
         page.addView(label("A quiet weekly reminder of the character you want to cultivate. Focus on one of twelve traits each week, read its meaning, and choose daily reminders that fit your day.", 17f))
         space(page, 14)
-        page.addView(label("The cycle advances every Sunday. Trait names and definitions are yours to edit. Your settings and edits stay on this device; internet access is used only for update checks and downloads you request.", 14f, muted))
+        page.addView(label("The cycle advances every Sunday. Trait names and definitions are yours to edit. Data is stored on this device; backups go to a location you choose. Internet access is used for update checks and downloads you request.", 14f, muted))
         space(page, 28)
         val updates = card()
         updates.addView(smallLabel("APP UPDATES"))

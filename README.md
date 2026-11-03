@@ -28,6 +28,8 @@ The twelve traits are Self-Control, Order, Prudence, Diligence, Stewardship, Int
 
 Screenshots are from the installed Android app. The [About screen](docs/screenshots/info-light.png) shows the version, description, and update check.
 
+Also see the [backup controls](docs/screenshots/backup-dark.png) and [notification drawer](docs/screenshots/notification-drawer.png).
+
 ## Reminder delivery
 
 Android 13+ requires notification permission. Settings shows a notification-permission shortcut when needed. Android 12+ may also require **Alarms & reminders** access for precise timing; without it, standard reminders still work but Android may delay delivery. Exact delivery can still be affected by device restrictions. Multiple pending times remain independent when a reminder is delivered late.
@@ -67,4 +69,4 @@ For a signed release, set `CHARACTER_KEYSTORE`, `CHARACTER_STORE_PASSWORD`, and 
 
 The app checks GitHub's latest stable release, compares the three numeric version components, and accepts APK links only from this repository's GitHub release-download path. Prereleases are excluded. Android enforces package/signature compatibility when installing updates. Signing credentials stay outside Git and GitHub; CI builds and tests without them.
 
-See [validation results](docs/VALIDATION.md) for completed checks and their limits.
+See [1.1.0 validation results](docs/VALIDATION-1.1.0.md) for completed checks and their limits. The [1.0.1 record](docs/VALIDATION.md) is retained separately.
